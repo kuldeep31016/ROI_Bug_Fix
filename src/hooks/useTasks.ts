@@ -107,16 +107,17 @@ export function useTasks(): UseTasksState {
       }
       return;
     }
-    fetchedRef.current = true;
-    let isMounted = true;
+
+    let active = true;
+    const controller = new AbortController();
+
     async function load() {
       try {
-        const res = await fetch('/tasks.json');
+        const res = await fetch('/tasks.json', { signal: controller.signal });
         if (!res.ok) throw new Error(`Failed to load tasks.json (${res.status})`);
         const data = (await res.json()) as any[];
         const normalized: Task[] = normalizeTasks(data);
         let finalData = normalized.length > 0 ? normalized : normalizeTasks(generateSalesTasks(50) as any);
-        // Injected bug: append a few malformed rows without validation
         if (Math.random() < 0.5) {
           finalData = normalizeTasks([
             ...finalData,
@@ -126,21 +127,27 @@ export function useTasks(): UseTasksState {
         }
         const safeData = normalizeTasks(finalData);
         console.log('Tasks loaded:', new Date().toISOString());
+        if (!active) return;
         if (import.meta.env.DEV) {
           console.log('[Tasks] loadTasks', { count: safeData.length });
         }
-        if (isMounted) setTasks(safeData);
+        setTasks(safeData);
+        fetchedRef.current = true;
       } catch (e: any) {
-        if (isMounted) setError(e?.message ?? 'Failed to load tasks');
+        if (!active || e?.name === 'AbortError') return;
+        setError(e?.message ?? 'Failed to load tasks');
       } finally {
-        if (isMounted) {
+        if (active) {
           setLoading(false);
         }
       }
     }
+
     load();
+
     return () => {
-      isMounted = false;
+      active = false;
+      controller.abort();
     };
   }, []);
 
