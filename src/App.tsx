@@ -1,4 +1,4 @@
-import { Alert, Avatar, Box, Button, CircularProgress, Container, MenuItem, Select, SnackbarCloseReason, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Autocomplete, Avatar, Box, Button, CircularProgress, Container, MenuItem, Select, SnackbarCloseReason, Stack, TextField, Typography } from '@mui/material';
 import MetricsBar from '@/components/MetricsBar';
 import TaskTable from '@/components/TaskTable';
 import UndoSnackbar from '@/components/UndoSnackbar';
@@ -40,6 +40,10 @@ function AppContent() {
     type,
     summary,
   }), []);
+
+  const taskTitles = useMemo(() => {
+    return Array.from(new Set(derivedSorted.map(t => t.title))).sort();
+  }, [derivedSorted]);
 
   const filtered = useMemo(() => {
     return derivedSorted.filter(t => {
@@ -113,7 +117,25 @@ function AppContent() {
           )}
           {!loading && !error && (
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
-              <TextField placeholder="Search by title" value={q} onChange={e => setQ(e.target.value)} fullWidth />
+              <Autocomplete
+                freeSolo
+                options={taskTitles}
+                value={q}
+                onInputChange={(event, newValue) => {
+                  setQ(newValue || '');
+                }}
+                onChange={(event, newValue) => {
+                  setQ(newValue || '');
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Search by title"
+                    fullWidth
+                  />
+                )}
+                sx={{ flex: 1 }}
+              />
               <Select value={fStatus} onChange={e => setFStatus(e.target.value)} displayEmpty sx={{ minWidth: 180 }}>
                 <MenuItem value="All">All Statuses</MenuItem>
                 <MenuItem value="Todo">Todo</MenuItem>
