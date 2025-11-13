@@ -15,13 +15,35 @@ export default function ChartsDashboard({ tasks }: Props) {
     status: s,
     revenue: tasks.filter(t => t.status === (s as any)).reduce((s2, t) => s2 + t.revenue, 0),
   }));
-  // Injected bug: assume numeric ROI across the board; mis-bucket null/NaN
-  const roiBuckets = [
-    { label: '<200', count: tasks.filter(t => (t.roi as number) < 200).length },
-    { label: '200-500', count: tasks.filter(t => (t.roi as number) >= 200 && (t.roi as number) <= 500).length },
-    { label: '>500', count: tasks.filter(t => (t.roi as number) > 500).length },
-    { label: 'N/A', count: tasks.filter(t => (t.roi as number) < 0).length },
-  ];
+  const roiBuckets = tasks.reduce(
+    (acc, task) => {
+      const value = typeof task.roi === 'number' ? task.roi : null;
+      if (value == null || !Number.isFinite(value) || Math.abs(value) < Number.EPSILON) {
+        acc['N/A'] += 1;
+        return acc;
+      }
+      if (value < 200) {
+        acc['<200'] += 1;
+      } else if (value <= 500) {
+        acc['200-500'] += 1;
+      } else {
+        acc['>500'] += 1;
+      }
+      return acc;
+    },
+    {
+      '<200': 0,
+      '200-500': 0,
+      '>500': 0,
+      'N/A': 0,
+    } as Record<'<200' | '200-500' | '>500' | 'N/A', number>
+  );
+
+  const roiBucketList = Object.entries(roiBuckets).map(([label, count]) => ({ label, count }));
+
+  if (import.meta.env.DEV) {
+    console.log('[Charts] ROI buckets', roiBuckets);
+  }
 
   return (
     <Card>
@@ -58,8 +80,8 @@ export default function ChartsDashboard({ tasks }: Props) {
             <Typography variant="body2" color="text.secondary">ROI Distribution</Typography>
             <BarChart
               height={240}
-              xAxis={[{ scaleType: 'band', data: roiBuckets.map(b => b.label) }]}
-              series={[{ data: roiBuckets.map(b => b.count), color: '#22A699' }]}
+              xAxis={[{ scaleType: 'band', data: roiBucketList.map(b => b.label) }]}
+              series={[{ data: roiBucketList.map(b => b.count), color: '#22A699' }]}
             />
           </Box>
         </Box>

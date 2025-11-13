@@ -3,13 +3,14 @@ import { Box, Button, Card, CardContent, IconButton, Stack, Table, TableBody, Ta
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
-import { DerivedTask, Task } from '@/types';
+import { DerivedTask, Task, TaskUpsert } from '@/types';
 import TaskForm from '@/components/TaskForm';
 import TaskDetailsDialog from '@/components/TaskDetailsDialog';
+import DisplayROI from '@/components/DisplayROI';
 
 interface Props {
   tasks: DerivedTask[];
-  onAdd: (payload: Omit<Task, 'id'>) => void;
+  onAdd: (payload: TaskUpsert) => void;
   onUpdate: (id: string, patch: Partial<Task>) => void;
   onDelete: (id: string) => void;
 }
@@ -30,12 +31,12 @@ export default function TaskTable({ tasks, onAdd, onUpdate, onDelete }: Props) {
     setOpenForm(true);
   };
 
-  const handleSubmit = (value: Omit<Task, 'id'> & { id?: string }) => {
-    if (value.id) {
-      const { id, ...rest } = value as Task;
-      onUpdate(id, rest);
+  const handleSubmit = (value: TaskUpsert) => {
+     if (value.id) {
+      const { id, ...rest } = value;
+      onUpdate(id, rest as Partial<Task>);
     } else {
-      onAdd(value as Omit<Task, 'id'>);
+      onAdd(value);
     }
   };
 
@@ -79,18 +80,37 @@ export default function TaskTable({ tasks, onAdd, onUpdate, onDelete }: Props) {
                   </TableCell>
                   <TableCell align="right">${t.revenue.toLocaleString()}</TableCell>
                   <TableCell align="right">{t.timeTaken}</TableCell>
-                  <TableCell align="right">{t.roi == null ? 'N/A' : t.roi.toFixed(1)}</TableCell>
+                  <TableCell align="right"><DisplayROI value={t.roi} /></TableCell>
                   <TableCell>{t.priority}</TableCell>
                   <TableCell>{t.status}</TableCell>
                   <TableCell align="right">
                     <Stack direction="row" spacing={1} justifyContent="flex-end">
                       <Tooltip title="Edit">
-                        <IconButton onClick={() => handleEditClick(t)} size="small">
+                        <IconButton
+                          onClick={event => {
+                            event.stopPropagation();
+                            if (import.meta.env.DEV) {
+                              console.log('[TaskTable] edit click', t.id);
+                            }
+                            handleEditClick(t);
+                          }}
+                          size="small"
+                        >
                           <EditIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Delete">
-                        <IconButton onClick={() => onDelete(t.id)} size="small" color="error">
+                        <IconButton
+                          onClick={event => {
+                            event.stopPropagation();
+                            if (import.meta.env.DEV) {
+                              console.log('[TaskTable] delete click', t.id);
+                            }
+                            onDelete(t.id);
+                          }}
+                          size="small"
+                          color="error"
+                        >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>

@@ -12,12 +12,12 @@ import {
   Stack,
   TextField,
 } from '@mui/material';
-import { Priority, Status, Task } from '@/types';
+import { Priority, Status, Task, TaskUpsert } from '@/types';
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSubmit: (value: Omit<Task, 'id'> & { id?: string }) => void;
+  onSubmit: (value: TaskUpsert) => void;
   existingTitles: string[];
   initial?: Task | null;
 }
@@ -32,6 +32,20 @@ export default function TaskForm({ open, onClose, onSubmit, existingTitles, init
   const [priority, setPriority] = useState<Priority | ''>('');
   const [status, setStatus] = useState<Status | ''>('');
   const [notes, setNotes] = useState('');
+
+  const validateTaskInput = (rev: number | '', time: number | ''): boolean => {
+    if (typeof rev !== 'number' || rev <= 0) {
+      alert('Revenue must be greater than 0');
+      return false;
+    }
+
+    if (typeof time !== 'number' || time <= 0) {
+      alert('Time taken must be greater than 0');
+      return false;
+    }
+
+    return true;
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -62,22 +76,31 @@ export default function TaskForm({ open, onClose, onSubmit, existingTitles, init
   const canSubmit =
     !!title.trim() &&
     !duplicateTitle &&
-    typeof revenue === 'number' && revenue >= 0 &&
+    typeof revenue === 'number' && revenue > 0 &&
     typeof timeTaken === 'number' && timeTaken > 0 &&
     !!priority &&
     !!status;
 
   const handleSubmit = () => {
-    const safeTime = typeof timeTaken === 'number' && timeTaken > 0 ? timeTaken : 1; // auto-correct
-    const payload: Omit<Task, 'id'> & { id?: string } = {
+    if (!validateTaskInput(revenue, timeTaken)) {
+      return;
+    }
+    const safeRevenue = typeof revenue === 'number' ? revenue : 0;
+    const safeTime = typeof timeTaken === 'number' ? timeTaken : 0;
+    const payload: TaskUpsert = {
       title: title.trim(),
-      revenue: typeof revenue === 'number' ? revenue : 0,
+      revenue: safeRevenue,
       timeTaken: safeTime,
       priority: ((priority || 'Medium') as Priority),
       status: ((status || 'Todo') as Status),
       notes: notes.trim() || undefined,
+      createdAt: initial?.createdAt,
+      completedAt: initial?.completedAt,
       ...(initial ? { id: initial.id } : {}),
     };
+    if (import.meta.env.DEV) {
+      console.log('[TaskForm] submit', { revenue: safeRevenue, timeTaken: safeTime });
+    }
     onSubmit(payload);
     onClose();
   };
@@ -102,7 +125,7 @@ export default function TaskForm({ open, onClose, onSubmit, existingTitles, init
               type="number"
               value={revenue}
               onChange={e => setRevenue(e.target.value === '' ? '' : Number(e.target.value))}
-              inputProps={{ min: 0, step: 1 }}
+              inputProps={{ min: 0, step: 0.01 }}
               required
               fullWidth
             />
@@ -111,7 +134,7 @@ export default function TaskForm({ open, onClose, onSubmit, existingTitles, init
               type="number"
               value={timeTaken}
               onChange={e => setTimeTaken(e.target.value === '' ? '' : Number(e.target.value))}
-              inputProps={{ min: 1, step: 1 }}
+              inputProps={{ min: 0, step: 0.01 }}
               required
               fullWidth
             />

@@ -1,8 +1,24 @@
 import { DerivedTask, Task } from '@/types';
 
+export function calculateROI(revenueInput: number | string, timeInput: number | string): number | null {
+  const revenue = Number(revenueInput);
+  const timeTaken = Number(timeInput);
+
+  if (!Number.isFinite(revenue) || !Number.isFinite(timeTaken)) return null;
+  if (revenue < 0 || timeTaken <= 0) return null;
+
+  const roi = revenue / timeTaken;
+  if (!Number.isFinite(roi)) return null;
+
+  const rounded = Math.round(roi * 100) / 100;
+  if (import.meta.env.DEV) {
+    console.log('[ROI] calculateROI', { revenue, timeTaken, roi: rounded });
+  }
+  return rounded;
+}
+
 export function computeROI(revenue: number, timeTaken: number): number | null {
-  // Injected bug: allow non-finite and divide-by-zero to pass through
-  return revenue / (timeTaken as number);
+  return calculateROI(revenue, timeTaken);
 }
 
 export function computePriorityWeight(priority: Task['priority']): 3 | 2 | 1 {
@@ -25,14 +41,26 @@ export function withDerived(task: Task): DerivedTask {
 }
 
 export function sortTasks(tasks: ReadonlyArray<DerivedTask>): DerivedTask[] {
-  return [...tasks].sort((a, b) => {
+  const sorted = [...tasks].sort((a, b) => {
     const aROI = a.roi ?? -Infinity;
     const bROI = b.roi ?? -Infinity;
     if (bROI !== aROI) return bROI - aROI;
+
     if (b.priorityWeight !== a.priorityWeight) return b.priorityWeight - a.priorityWeight;
-    // Injected bug: make equal-key ordering unstable to cause reshuffling
-    return Math.random() < 0.5 ? -1 : 1;
+
+    const titleDiff = a.title.localeCompare(b.title, undefined, { sensitivity: 'base' });
+    if (titleDiff !== 0) return titleDiff;
+
+    const aCreated = new Date(a.createdAt).getTime();
+    const bCreated = new Date(b.createdAt).getTime();
+    return aCreated - bCreated;
   });
+
+  if (import.meta.env.DEV) {
+    console.log('[ROI] sortTasks order', sorted.map(t => ({ id: t.id, title: t.title, roi: t.roi })));
+  }
+
+  return sorted;
 }
 
 export function computeTotalRevenue(tasks: ReadonlyArray<Task>): number {

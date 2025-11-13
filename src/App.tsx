@@ -1,15 +1,15 @@
-import { Alert, Avatar, Box, Button, CircularProgress, Container, MenuItem, Select, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Avatar, Box, Button, CircularProgress, Container, MenuItem, Select, SnackbarCloseReason, Stack, TextField, Typography } from '@mui/material';
 import MetricsBar from '@/components/MetricsBar';
 import TaskTable from '@/components/TaskTable';
 import UndoSnackbar from '@/components/UndoSnackbar';
-import { useCallback, useMemo, useState } from 'react';
+import { SyntheticEvent, useCallback, useMemo, useState } from 'react';
 import { UserProvider, useUser } from '@/context/UserContext';
 import { TasksProvider, useTasksContext } from '@/context/TasksContext';
 import ChartsDashboard from '@/components/ChartsDashboard';
 import AnalyticsDashboard from '@/components/AnalyticsDashboard';
 import ActivityLog, { ActivityItem } from '@/components/ActivityLog';
 import { downloadCSV, toCSV } from '@/utils/csv';
-import type { Task } from '@/types';
+import type { Task, TaskUpsert } from '@/types';
 import {
   computeAverageROI,
   computePerformanceGrade,
@@ -19,8 +19,16 @@ import {
 } from '@/utils/logic';
 
 function AppContent() {
-  const { loading, error, metrics, derivedSorted, addTask, updateTask, deleteTask, undoDelete, lastDeleted } = useTasksContext();
-  const handleCloseUndo = () => {};
+  const { loading, error, metrics, derivedSorted, addTask, updateTask, deleteTask, undoDelete, lastDeleted, showUndo, dismissUndo } = useTasksContext();
+  const handleCloseUndo = useCallback((event: SyntheticEvent | Event, reason?: SnackbarCloseReason) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    if (import.meta.env.DEV) {
+      console.log('[App] snackbar closed', { reason });
+    }
+    dismissUndo();
+  }, [dismissUndo]);
   const [q, setQ] = useState('');
   const [fStatus, setFStatus] = useState<string>('All');
   const [fPriority, setFPriority] = useState<string>('All');
@@ -42,7 +50,7 @@ function AppContent() {
     });
   }, [derivedSorted, q, fStatus, fPriority]);
 
-  const handleAdd = useCallback((payload: Omit<Task, 'id'>) => {
+  const handleAdd = useCallback((payload: TaskUpsert) => {
     addTask(payload);
     setActivity(prev => [createActivity('add', `Added: ${payload.title}`), ...prev].slice(0, 50));
   }, [addTask, createActivity]);
@@ -55,9 +63,15 @@ function AppContent() {
     setActivity(prev => [createActivity('delete', `Deleted task ${id}`), ...prev].slice(0, 50));
   }, [deleteTask, createActivity]);
   const handleUndo = useCallback(() => {
+    if (!lastDeleted) {
+      if (import.meta.env.DEV) {
+        console.log('[App] undo requested with no lastDeleted');
+      }
+      return;
+    }
     undoDelete();
     setActivity(prev => [createActivity('undo', 'Undo delete'), ...prev].slice(0, 50));
-  }, [undoDelete, createActivity]);
+  }, [undoDelete, createActivity, lastDeleted]);
   return (
     <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default' }}>
       <Container maxWidth="lg" sx={{ py: { xs: 3, md: 5 } }}>
@@ -126,7 +140,7 @@ function AppContent() {
           {!loading && !error && <ChartsDashboard tasks={filtered} />}
           {!loading && !error && <AnalyticsDashboard tasks={filtered} />}
           {!loading && !error && <ActivityLog items={activity} />}
-          <UndoSnackbar open={!!lastDeleted} onClose={handleCloseUndo} onUndo={handleUndo} />
+          <UndoSnackbar open={showUndo} onClose={handleCloseUndo} onUndo={handleUndo} />
          </Stack>
       </Container>
     </Box>

@@ -18,6 +18,8 @@ export interface DerivedTask extends Task {
   priorityWeight: 3 | 2 | 1;
 }
 
+export type TaskUpsert = Omit<Task, 'createdAt' | 'completedAt' | 'id'> & Partial<Pick<Task, 'id' | 'createdAt' | 'completedAt'>>;
+
 export interface Metrics {
   totalRevenue: number;
   totalTimeTaken: number;
